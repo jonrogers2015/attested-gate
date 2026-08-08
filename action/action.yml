@@ -1,0 +1,65 @@
+name: 'PR Gatekeeper'
+description: >
+  Deterministic verification that a PR really fixes what it claims. Runs
+  the ORIGINAL base-branch test files against the PR's code in an
+  isolated copy, so editing a test in the PR can't change the outcome.
+  No model in the check path.
+branding:
+  icon: 'shield'
+  color: 'purple'
+
+inputs:
+  base-ref:
+    description: 'Git ref to pull protected test files from'
+    required: false
+    default: 'origin/main'
+  test-glob:
+    description: 'Filename pattern for test files to protect (matched by basename, not path)'
+    required: false
+    default: 'test_*.py'
+  test-command:
+    description: 'Test runner command, without file arguments'
+    required: false
+    default: 'python3 -m pytest'
+  github-token:
+    description: 'Token used to post the evidence comment on the PR'
+    required: true
+
+outputs:
+  passed:
+    description: "'true' or 'false'"
+    value: ${{ steps.gate.outputs.passed }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install attested
+      shell: bash
+      run: pip install attested --quiet --break-system-packages || pip install attested --quiet
+
+    - name: Fetch base ref
+      shell: bash
+      run: git fetch origin ${{ inputs.base-ref }} --depth=1 || true
+
+    - name: Run deterministic gate
+      id: gate
+      shell: bash
+      env:
+        BASE_REF: ${{ inputs.base-ref }}
+        TEST_GLOB: ${{ inputs.test-glob }}
+        TEST_COMMAND: ${{ inputs.test-command }}
+        WORKSPACE: ${{ github.workspace }}
+      run: |
+        set +e
+        python3 ${{ github.action_path }}/gate_action.py > gatekeeper_output.txt 2>&1
+        code=$?
+        echo "passed=$([ $code -eq 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+        cat gatekeeper_output.txt
+        exit $code
+
+    - name: Post evidence comment
+      if: always()
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: python3 ${{ github.action_path }}/post_comment.py
