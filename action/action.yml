@@ -37,10 +37,6 @@ runs:
       shell: bash
       run: pip install attested --quiet --break-system-packages || pip install attested --quiet
 
-    - name: Fetch base ref
-      shell: bash
-      run: git fetch origin ${{ inputs.base-ref }} --depth=1 || true
-
     - name: Run deterministic gate
       id: gate
       shell: bash

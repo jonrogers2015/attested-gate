@@ -1,0 +1,23 @@
+name: PR Gatekeeper Self-Test
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: ./action
+        with:
+          base-ref: origin/main
+          test-glob: 'test_pricing.py'
+          test-command: 'python3 -m pytest'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
