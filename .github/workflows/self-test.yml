@@ -18,6 +18,6 @@ jobs:
       - uses: ./action
         with:
           base-ref: origin/main
-          test-glob: 'test_pricing.py'
+          test-glob: 'demo/base/test_pricing.py'
           test-command: 'python3 -m pytest'
           github-token: ${{ secrets.GITHUB_TOKEN }}

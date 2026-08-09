@@ -10,8 +10,23 @@ run inside the thing being verified."
 
 Reads config from environment (set by action.yml):
   BASE_REF       -- e.g. "origin/main"
-  TEST_GLOB      -- filename pattern (not a path glob), e.g. "test_*.py"
-                    matches any file with that basename anywhere in the repo
+  TEST_GLOB      -- glob matched against the FULL RELATIVE PATH (not just
+                    filename), e.g. "test_*.py" matches any top-level file
+                    with that name, "demo/base/test_*.py" matches only
+                    within that directory, "**/test_*.py" matches at any
+                    depth. Use a path-scoped glob whenever a repo could
+                    have multiple files sharing a basename in different
+                    directories -- pytest cannot collect two same-named
+                    test modules from different packages without proper
+                    __init__.py packaging, so an unscoped glob that
+                    matches more than one such file will make every run
+                    fail to even collect, not just fail to pass. This bit
+                    this repo's own self-test (both directions showed
+                    BLOCKED on 2026-08-09, from a collection error, not
+                    real detection) before being caught and fixed here --
+                    v1 matched by basename only, which silently picked up
+                    demo/base/, demo/tampered_pr/, and demo/honest_pr/'s
+                    three separate test_pricing.py files at once.
   TEST_COMMAND   -- e.g. "python3 -m pytest"
   WORKSPACE      -- checked-out PR working directory (defaults to cwd)
 
@@ -35,13 +50,14 @@ def sh(cmd: list[str], cwd: str | None = None) -> subprocess.CompletedProcess:
 
 
 def find_base_test_files(workspace: Path, base_ref: str, test_glob: str) -> list[str]:
-    """List every file that exists on base_ref and matches test_glob."""
+    """List every file that exists on base_ref and matches test_glob,
+    matched against the file's full relative path from repo root."""
     result = sh(["git", "ls-tree", "-r", "--name-only", base_ref], cwd=str(workspace))
     if result.returncode != 0:
         print(f"[gate] ERROR: could not list files on {base_ref!r}: {result.stderr.strip()}")
         return []
     all_files = result.stdout.splitlines()
-    return [f for f in all_files if fnmatch.fnmatch(Path(f).name, test_glob)]
+    return [f for f in all_files if fnmatch.fnmatch(f, test_glob)]
 
 
 def extract_file_at_ref(workspace: Path, ref: str, path: str, dest: Path) -> bool:
