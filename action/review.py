@@ -2,12 +2,23 @@
 """
 PR Gatekeeper -- Layer 2: AI review, self-contained (no Helmward dependency).
 
-Sends ONLY the raw diff + full content of changed files to an OpenRouter
-model -- deliberately no PR description, no commit messages, no coding
-agent's own reasoning, so the reviewer can't be swayed by the agent's own
-narrative of what it did. This is the "no shared context" requirement:
-the reviewer forms its own opinion from the artifact alone, the same way
-gate_action.py (Layer 1) never trusts the PR's own test files.
+Sends ONLY the raw diff to an OpenRouter model -- deliberately no PR
+description, no commit messages, no coding agent's own reasoning, so the
+reviewer can't be swayed by the agent's own narrative of what it did.
+This is the "no shared context" requirement: the reviewer forms its own
+opinion from the artifact alone, the same way gate_action.py (Layer 1)
+never trusts the PR's own test files.
+
+DIFF-ONLY, not diff + full file content (changed from an earlier version
+that sent both). Full file content scales badly -- a single moderately
+sized changed file can be many times larger than its own diff, and this
+exact tool hit that live: testing with a tiny 1-line change still pulled
+in another changed file's ENTIRE ~180-line content and blew a real
+OpenRouter prompt-size cap (4072 tokens sent against a 1172 token limit
+on that account). A unified diff already carries surrounding context
+lines, which is enough for a reviewer to judge a change without needing
+the whole file -- and it scales with the SIZE OF THE CHANGE, not the
+size of whatever file happened to be touched.
 
 Adapted from helmward-chat/chat.py's proven OpenRouter-calling pattern
 (same headers, same max_tokens discipline to avoid a 402 on a low-balance
@@ -31,13 +42,15 @@ Reads config from environment:
                           DEFAULT_MAX_TOKENS below) -- shipping a default
                           that assumes a well-funded account is a real
                           design mistake, not a hypothetical one: this
-                          exact script hit a real HTTP 402 in testing
-                          ("requested up to 2048 tokens, but can only
-                          afford 234") the first time it ran against a
-                          real, ordinary OpenRouter balance. Configurable
-                          per-repo via the action's review-max-tokens
-                          input for anyone who wants richer review output
-                          and has the credits for it.
+                          exact script hit two real HTTP 402s in live
+                          testing before landing here (2048 -> 300 was
+                          still over the account's real output budget of
+                          234; separately the account's real INPUT cap
+                          was 1172 tokens, well under what diff+full-file
+                          content required). Configurable per-repo via
+                          the action's review-max-tokens input for anyone
+                          who wants richer review output and has the
+                          credits for it.
   BASE_REF             -- e.g. "origin/main"
   WORKSPACE            -- checked-out PR working directory
 
@@ -62,9 +75,9 @@ DEFAULT_MODEL = "anthropic/claude-sonnet-4.5"
 DEFAULT_MAX_TOKENS = 150
 
 REVIEW_SYSTEM_PROMPT = """You are an independent code reviewer. You will be shown a
-git diff and the full content of the changed files -- nothing else. You do
-not see the PR description, commit messages, or any explanation from
-whoever wrote this diff. Form your own judgment from the artifact alone.
+git diff -- nothing else. You do not see the PR description, commit
+messages, or any explanation from whoever wrote this diff. Form your own
+judgment from the diff alone.
 
 Respond with ONLY a JSON object, no other text, in exactly this shape:
 {
@@ -96,30 +109,9 @@ def get_diff(workspace: Path, base_ref: str) -> str:
     return result.stdout
 
 
-def get_changed_files(workspace: Path, base_ref: str) -> list[str]:
-    result = subprocess.run(
-        ["git", "diff", "--name-only", f"{base_ref}...HEAD"],
-        cwd=str(workspace), capture_output=True, text=True,
-    )
-    return [f for f in result.stdout.splitlines() if f]
-
-
 def build_review_input(workspace: Path, base_ref: str) -> str:
     diff = get_diff(workspace, base_ref)
-    files = get_changed_files(workspace, base_ref)
-
-    parts = [f"=== DIFF ({base_ref}...HEAD) ===", diff, ""]
-    for f in files:
-        full_path = workspace / f
-        if full_path.is_file():
-            try:
-                content = full_path.read_text(errors="replace")
-            except OSError:
-                continue
-            parts.append(f"=== FULL FILE CONTENT: {f} ===")
-            parts.append(content)
-            parts.append("")
-    return "\n".join(parts)
+    return f"=== DIFF ({base_ref}...HEAD) ===\n{diff}"
 
 
 def call_reviewer(api_key: str, model: str, review_input: str, max_tokens: int) -> dict:
@@ -134,9 +126,7 @@ def call_reviewer(api_key: str, model: str, review_input: str, max_tokens: int) 
     # which can exceed what a low-balance account can afford and produce
     # a 402 on the very first call rather than a useful response. Same
     # lesson chat.py already learned the hard way -- and the same lesson
-    # this script itself had to re-learn live, the first version here
-    # still hardcoded 2048 despite the docstring warning about exactly
-    # this failure mode.
+    # this script itself had to re-learn live, twice, before landing here.
     body = {
         "model": model,
         "messages": [
