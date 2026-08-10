@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+gatekeeper_output.txt
+review_output.json
+crossverify_output.json
