@@ -72,7 +72,7 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1"
 DEFAULT_MODEL = "anthropic/claude-sonnet-4.5"
 # Deliberately conservative -- see the REVIEW_MAX_TOKENS docstring note
 # above for why this isn't 2048 like an earlier version shipped with.
-DEFAULT_MAX_TOKENS = 150
+DEFAULT_MAX_TOKENS = 220
 
 REVIEW_SYSTEM_PROMPT = """You are an independent code reviewer. You will be shown a
 git diff -- nothing else. You do not see the PR description, commit
@@ -95,7 +95,7 @@ Only include a checkable_claim for something concrete and verifiable --
 e.g. "a new test function was added", "error handling was added for X",
 "the debug print statement was removed". Do not include vague claims
 that can't be reduced to a pattern or a file path. Keep findings short,
-one line each -- you have a tight token budget, so be terse. If you have
+one line each -- you have a VERY tight token budget, so be extremely terse: at most 2 findings, at most 1 checkable_claim, no filler words. If you have
 no concerns, verdict is "approve" and findings can be empty, but still
 include checkable_claims for what the diff actually does, if anything
 is concretely checkable."""
