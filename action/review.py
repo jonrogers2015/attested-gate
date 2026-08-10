@@ -59,7 +59,7 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1"
 DEFAULT_MODEL = "anthropic/claude-sonnet-4.5"
 # Deliberately conservative -- see the REVIEW_MAX_TOKENS docstring note
 # above for why this isn't 2048 like an earlier version shipped with.
-DEFAULT_MAX_TOKENS = 300
+DEFAULT_MAX_TOKENS = 150
 
 REVIEW_SYSTEM_PROMPT = """You are an independent code reviewer. You will be shown a
 git diff and the full content of the changed files -- nothing else. You do
