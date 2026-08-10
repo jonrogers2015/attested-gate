@@ -15,6 +15,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install test dependencies
+        run: pip install pytest --quiet --break-system-packages || pip install pytest --quiet
+
       - uses: ./action
         with:
           base-ref: origin/main
