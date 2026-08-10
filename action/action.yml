@@ -45,7 +45,7 @@ inputs:
       -- raise this if you want richer findings and have the credits for
       it.
     required: false
-    default: '150'
+    default: '220'
 
 outputs:
   passed:
