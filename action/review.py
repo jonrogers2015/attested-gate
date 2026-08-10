@@ -26,6 +26,18 @@ applied to the reviewer too.
 Reads config from environment:
   OPENROUTER_API_KEY  -- required (repo secret in real usage)
   REVIEW_MODEL         -- OpenRouter model id, default set below
+  REVIEW_MAX_TOKENS    -- max_tokens for the review completion. Kept
+                          deliberately conservative by default (see
+                          DEFAULT_MAX_TOKENS below) -- shipping a default
+                          that assumes a well-funded account is a real
+                          design mistake, not a hypothetical one: this
+                          exact script hit a real HTTP 402 in testing
+                          ("requested up to 2048 tokens, but can only
+                          afford 234") the first time it ran against a
+                          real, ordinary OpenRouter balance. Configurable
+                          per-repo via the action's review-max-tokens
+                          input for anyone who wants richer review output
+                          and has the credits for it.
   BASE_REF             -- e.g. "origin/main"
   WORKSPACE            -- checked-out PR working directory
 
@@ -45,7 +57,9 @@ import httpx
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1"
 DEFAULT_MODEL = "anthropic/claude-sonnet-4.5"
-DEFAULT_MAX_TOKENS = 2048
+# Deliberately conservative -- see the REVIEW_MAX_TOKENS docstring note
+# above for why this isn't 2048 like an earlier version shipped with.
+DEFAULT_MAX_TOKENS = 300
 
 REVIEW_SYSTEM_PROMPT = """You are an independent code reviewer. You will be shown a
 git diff and the full content of the changed files -- nothing else. You do
@@ -68,9 +82,10 @@ Only include a checkable_claim for something concrete and verifiable --
 e.g. "a new test function was added", "error handling was added for X",
 "the debug print statement was removed". Do not include vague claims
 that can't be reduced to a pattern or a file path. Keep findings short,
-one line each. If you have no concerns, verdict is "approve" and
-findings can be empty, but still include checkable_claims for what the
-diff actually does, if anything is concretely checkable."""
+one line each -- you have a tight token budget, so be terse. If you have
+no concerns, verdict is "approve" and findings can be empty, but still
+include checkable_claims for what the diff actually does, if anything
+is concretely checkable."""
 
 
 def get_diff(workspace: Path, base_ref: str) -> str:
@@ -107,7 +122,7 @@ def build_review_input(workspace: Path, base_ref: str) -> str:
     return "\n".join(parts)
 
 
-def call_reviewer(api_key: str, model: str, review_input: str) -> dict:
+def call_reviewer(api_key: str, model: str, review_input: str, max_tokens: int) -> dict:
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
@@ -118,14 +133,17 @@ def call_reviewer(api_key: str, model: str, review_input: str) -> dict:
     # default to its own max output (64000 for Sonnet on OpenRouter),
     # which can exceed what a low-balance account can afford and produce
     # a 402 on the very first call rather than a useful response. Same
-    # lesson chat.py already learned the hard way.
+    # lesson chat.py already learned the hard way -- and the same lesson
+    # this script itself had to re-learn live, the first version here
+    # still hardcoded 2048 despite the docstring warning about exactly
+    # this failure mode.
     body = {
         "model": model,
         "messages": [
             {"role": "system", "content": REVIEW_SYSTEM_PROMPT},
             {"role": "user", "content": review_input},
         ],
-        "max_tokens": DEFAULT_MAX_TOKENS,
+        "max_tokens": max_tokens,
     }
     resp = httpx.post(f"{OPENROUTER_URL}/chat/completions", headers=headers,
                        json=body, timeout=120.0)
@@ -153,6 +171,12 @@ def main() -> int:
     base_ref = os.environ.get("BASE_REF", "origin/main")
     model = os.environ.get("REVIEW_MODEL", DEFAULT_MODEL)
     api_key = os.environ.get("OPENROUTER_API_KEY", "").strip()
+    max_tokens_raw = os.environ.get("REVIEW_MAX_TOKENS", "").strip()
+    try:
+        max_tokens = int(max_tokens_raw) if max_tokens_raw else DEFAULT_MAX_TOKENS
+    except ValueError:
+        print(f"[review] WARNING: REVIEW_MAX_TOKENS={max_tokens_raw!r} not an integer, using default {DEFAULT_MAX_TOKENS}")
+        max_tokens = DEFAULT_MAX_TOKENS
 
     if not api_key:
         print("[review] OPENROUTER_API_KEY not set -- Layer 2 skipped (Layer 1 gate is unaffected)")
@@ -162,10 +186,11 @@ def main() -> int:
 
     review_input = build_review_input(workspace, base_ref)
     print(f"[review] model: {model}")
+    print(f"[review] max_tokens: {max_tokens}")
     print(f"[review] review input: {len(review_input)} chars")
 
     try:
-        result = call_reviewer(api_key, model, review_input)
+        result = call_reviewer(api_key, model, review_input, max_tokens)
     except Exception as e:
         print(f"[review] ERROR calling reviewer: {e}")
         result = {"verdict": "error", "findings": [str(e)], "checkable_claims": []}

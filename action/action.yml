@@ -38,6 +38,14 @@ inputs:
     description: 'OpenRouter model id for Layer 2 review'
     required: false
     default: 'anthropic/claude-sonnet-4.5'
+  review-max-tokens:
+    description: >
+      Max output tokens for the Layer 2 review call. Kept low by default
+      (300) so a normal/modest OpenRouter balance doesn't hit an HTTP 402
+      -- raise this if you want richer findings and have the credits for
+      it.
+    required: false
+    default: '300'
 
 outputs:
   passed:
@@ -75,6 +83,7 @@ runs:
         WORKSPACE: ${{ github.workspace }}
         OPENROUTER_API_KEY: ${{ inputs.openrouter-api-key }}
         REVIEW_MODEL: ${{ inputs.review-model }}
+        REVIEW_MAX_TOKENS: ${{ inputs.review-max-tokens }}
       run: python3 ${{ github.action_path }}/review.py
 
     - name: 'Layer 3: cross-verify review claims'
