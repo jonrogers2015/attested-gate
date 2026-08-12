@@ -69,12 +69,12 @@ def check_claim(claim: dict, added_lines: list[str], changed_files: set[str]) ->
         except re.error:
             found = any(pattern in line for line in added_lines)
         return {**claim, "verified": found,
-                "reason": "pattern found in an added line" if found else "pattern NOT found in any added line"}
+                "reason": (f"pattern {pattern!r} found in an added line" if found else f"pattern {pattern!r} NOT found in any added line")}
     elif check_type == "file_touched":
         path = claim.get("path", "")
         found = path in changed_files
         return {**claim, "verified": found,
-                "reason": "file is in the changed-files list" if found else "file NOT in the changed-files list"}
+                "reason": (f"{path!r} is in the changed-files list" if found else f"{path!r} NOT in the changed-files list")}
     else:
         return {**claim, "verified": False, "reason": f"unknown check_type: {check_type!r}"}
 
