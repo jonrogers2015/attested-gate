@@ -37,7 +37,7 @@ inputs:
   review-model:
     description: 'OpenRouter model id for Layer 2 review'
     required: false
-    default: 'anthropic/claude-sonnet-4.5'
+    default: 'poolside/laguna-s-2.1:free'
   review-max-tokens:
     description: >
       Max output tokens for the Layer 2 review call. Kept low by default

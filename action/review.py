@@ -73,7 +73,7 @@ from pathlib import Path
 import httpx
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1"
-DEFAULT_MODEL = "anthropic/claude-sonnet-4.5"
+DEFAULT_MODEL = "poolside/laguna-s-2.1:free"
 DEFAULT_MAX_TOKENS = 220
 # Parses OpenRouter's own 402 wording: "...can only afford 181." -- this
 # exact phrase was observed live, twice, with two different real numbers.
