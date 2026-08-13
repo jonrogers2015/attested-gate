@@ -3,7 +3,8 @@ description: >
   Deterministic verification that a PR really fixes what it claims. Runs
   the ORIGINAL base-branch test files against the PR's code in an
   isolated copy, so editing a test in the PR can't change the outcome.
-  No model in the check path.
+  No model in the check path for the hard gate -- optional AI review and
+  cross-verification layer on top for judgment signal.
 branding:
   icon: 'shield'
   color: 'purple'
@@ -24,20 +25,41 @@ inputs:
   github-token:
     description: 'Token used to post the evidence comment on the PR'
     required: true
+  openrouter-api-key:
+    description: >
+      Optional. If set, enables Layer 2 (AI review) and Layer 3
+      (cross-verification of the reviewer's own claims) on top of the
+      Layer 1 deterministic gate. Layer 1 runs regardless -- this only
+      adds judgment signal, never replaces the hard gate. If unset,
+      Layers 2/3 are skipped and only Layer 1 runs.
+    required: false
+    default: ''
+  review-model:
+    description: 'OpenRouter model id for Layer 2 review'
+    required: false
+    default: 'anthropic/claude-sonnet-4.5'
+  review-max-tokens:
+    description: >
+      Max output tokens for the Layer 2 review call. Kept low by default
+      (300) so a normal/modest OpenRouter balance doesn't hit an HTTP 402
+      -- raise this if you want richer findings and have the credits for
+      it.
+    required: false
+    default: '220'
 
 outputs:
   passed:
-    description: "'true' or 'false'"
+    description: "'true' or 'false' -- Layer 1 (the hard gate) only"
     value: ${{ steps.gate.outputs.passed }}
 
 runs:
   using: 'composite'
   steps:
-    - name: Install attested
+    - name: Install dependencies
       shell: bash
-      run: pip install attested --quiet --break-system-packages || pip install attested --quiet
+      run: pip install attested httpx --quiet --break-system-packages || pip install attested httpx --quiet
 
-    - name: Run deterministic gate
+    - name: 'Layer 1: deterministic gate'
       id: gate
       shell: bash
       env:
@@ -52,6 +74,25 @@ runs:
         echo "passed=$([ $code -eq 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
         cat gatekeeper_output.txt
         exit $code
+
+    - name: 'Layer 2: AI review'
+      if: always()
+      shell: bash
+      env:
+        BASE_REF: ${{ inputs.base-ref }}
+        WORKSPACE: ${{ github.workspace }}
+        OPENROUTER_API_KEY: ${{ inputs.openrouter-api-key }}
+        REVIEW_MODEL: ${{ inputs.review-model }}
+        REVIEW_MAX_TOKENS: ${{ inputs.review-max-tokens }}
+      run: python3 ${{ github.action_path }}/review.py
+
+    - name: 'Layer 3: cross-verify review claims'
+      if: always()
+      shell: bash
+      env:
+        BASE_REF: ${{ inputs.base-ref }}
+        WORKSPACE: ${{ github.workspace }}
+      run: python3 ${{ github.action_path }}/crossverify.py
 
     - name: Post evidence comment
       if: always()
