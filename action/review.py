@@ -180,7 +180,20 @@ def call_reviewer(api_key: str, model: str, review_input: str, max_tokens: int) 
     if resp.status_code != 200:
         raise RuntimeError(f"OpenRouter HTTP {resp.status_code}: {resp.text[:600]}")
 
-    return _parse_content(resp)
+    try:
+        return _parse_content(resp)
+    except RuntimeError as e:
+        # Smaller/free models occasionally produce near-valid JSON with a
+        # small formatting slip (a missing quote, a trailing comma) --
+        # observed live with poolside/laguna-s-2.1:free. One retry with a
+        # fresh completion is cheap and usually clean on the second try;
+        # this is the same resilience pattern already used for the 402
+        # retry above, applied to a different real failure mode.
+        print(f"[review] first response was not valid JSON ({e}), retrying once")
+        resp2 = _post(api_key, model, review_input, max_tokens)
+        if resp2.status_code != 200:
+            raise RuntimeError(f"OpenRouter HTTP {resp2.status_code} on retry: {resp2.text[:600]}")
+        return _parse_content(resp2)
 
 
 def main() -> int:
