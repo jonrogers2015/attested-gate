@@ -1,0 +1,36 @@
+name: PR Gatekeeper Self-Test (local model)
+
+# Runs on a self-hosted runner with network access to a local
+# OpenAI-compatible endpoint (llama-swap), instead of paying for an
+# OpenRouter model. Requires a self-hosted runner registered to this
+# repo with the "self-hosted" label -- if none is registered, this
+# workflow's job will simply sit queued/waiting, it will not fail and
+# will not block anything (it is not a required status check).
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  gate:
+    runs-on: self-hosted
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install test dependencies
+        run: pip install pytest --quiet --break-system-packages || pip install pytest --quiet
+
+      - uses: ./action
+        with:
+          base-ref: origin/main
+          test-glob: 'demo/base/test_pricing.py'
+          test-command: 'python3 -m pytest'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          llm-base-url: 'http://192.168.1.180:8081/v1'
+          review-model: 'qwen35-9b-q6'
+          review-max-tokens: '400'

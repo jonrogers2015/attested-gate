@@ -73,7 +73,7 @@ from pathlib import Path
 
 import httpx
 
-OPENROUTER_URL = "https://openrouter.ai/api/v1"
+DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_MODEL = "poolside/laguna-s-2.1:free"
 DEFAULT_MAX_TOKENS = 220
 # Parses OpenRouter's own 402 wording: "...can only afford 181." -- this
@@ -125,13 +125,19 @@ def build_review_input(workspace: Path, base_ref: str) -> str:
     return f"=== DIFF ({base_ref}...HEAD) ===\n{diff}"
 
 
-def _post(api_key: str, model: str, review_input: str, max_tokens: int) -> httpx.Response:
+def _post(api_key: str, model: str, review_input: str, max_tokens: int, base_url: str) -> httpx.Response:
+    # Authorization is only sent if a key was actually given -- OpenRouter
+    # always requires one, but a local OpenAI-compatible endpoint (e.g.
+    # llama-swap on a self-hosted runner) typically needs none at all.
+    # Confirmed live: llama-swap at 192.168.1.180:8081 accepted a real
+    # /v1/chat/completions call with no Authorization header present.
     headers = {
-        "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
         "HTTP-Referer": "https://github.com/jonrogers2015/pr-gatekeeper",
         "X-Title": "PR Gatekeeper Layer 2 Review",
     }
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
     # Always set max_tokens explicitly -- omitting it lets the provider
     # default to its own max output (64000 for Sonnet on OpenRouter),
     # which can exceed what a low-balance account can afford and produce
@@ -144,7 +150,7 @@ def _post(api_key: str, model: str, review_input: str, max_tokens: int) -> httpx
         ],
         "max_tokens": max_tokens,
     }
-    return httpx.post(f"{OPENROUTER_URL}/chat/completions", headers=headers,
+    return httpx.post(f"{base_url}/chat/completions", headers=headers,
                        json=body, timeout=120.0)
 
 
@@ -164,8 +170,8 @@ def _parse_content(resp: httpx.Response) -> dict:
         raise RuntimeError(f"Reviewer did not return valid JSON: {e}\nraw content: {content[:600]}")
 
 
-def call_reviewer(api_key: str, model: str, review_input: str, max_tokens: int) -> dict:
-    resp = _post(api_key, model, review_input, max_tokens)
+def call_reviewer(api_key: str, model: str, review_input: str, max_tokens: int, base_url: str) -> dict:
+    resp = _post(api_key, model, review_input, max_tokens, base_url)
 
     if resp.status_code == 429:
         # Free models on OpenRouter are a shared, throttled resource pool --
@@ -175,7 +181,7 @@ def call_reviewer(api_key: str, model: str, review_input: str, max_tokens: int) 
         # the error message itself says to retry shortly.
         print(f"[review] 429 rate-limited by the provider, waiting 5s and retrying once")
         time.sleep(5)
-        resp = _post(api_key, model, review_input, max_tokens)
+        resp = _post(api_key, model, review_input, max_tokens, base_url)
 
     if resp.status_code == 402:
         match = AFFORD_PATTERN.search(resp.text)
@@ -184,7 +190,7 @@ def call_reviewer(api_key: str, model: str, review_input: str, max_tokens: int) 
             retry_tokens = max(1, affordable - RETRY_SAFETY_MARGIN)
             print(f"[review] 402 at max_tokens={max_tokens}, account can afford {affordable} -- "
                   f"retrying once at {retry_tokens}")
-            resp = _post(api_key, model, review_input, retry_tokens)
+            resp = _post(api_key, model, review_input, retry_tokens, base_url)
         else:
             print(f"[review] 402 but could not parse an affordable-tokens figure from: {resp.text[:300]}")
 
@@ -201,7 +207,7 @@ def call_reviewer(api_key: str, model: str, review_input: str, max_tokens: int) 
         # this is the same resilience pattern already used for the 402
         # retry above, applied to a different real failure mode.
         print(f"[review] first response was not valid JSON ({e}), retrying once")
-        resp2 = _post(api_key, model, review_input, max_tokens)
+        resp2 = _post(api_key, model, review_input, max_tokens, base_url)
         if resp2.status_code != 200:
             raise RuntimeError(f"OpenRouter HTTP {resp2.status_code} on retry: {resp2.text[:600]}")
         return _parse_content(resp2)
@@ -212,6 +218,7 @@ def main() -> int:
     base_ref = os.environ.get("BASE_REF", "origin/main")
     model = os.environ.get("REVIEW_MODEL", DEFAULT_MODEL)
     api_key = os.environ.get("OPENROUTER_API_KEY", "").strip()
+    base_url = os.environ.get("LLM_BASE_URL", "").strip() or DEFAULT_BASE_URL
     max_tokens_raw = os.environ.get("REVIEW_MAX_TOKENS", "").strip()
     try:
         max_tokens = int(max_tokens_raw) if max_tokens_raw else DEFAULT_MAX_TOKENS
@@ -219,19 +226,25 @@ def main() -> int:
         print(f"[review] WARNING: REVIEW_MAX_TOKENS={max_tokens_raw!r} not an integer, using default {DEFAULT_MAX_TOKENS}")
         max_tokens = DEFAULT_MAX_TOKENS
 
-    if not api_key:
+    # OpenRouter always requires a real key; a custom endpoint (local
+    # llama-swap, an internal gateway, etc.) typically does not -- only
+    # skip Layer 2 when BOTH the key is missing AND we would be talking
+    # to OpenRouter, since that combination can never work.
+    using_default_provider = (base_url == DEFAULT_BASE_URL)
+    if using_default_provider and not api_key:
         print("[review] OPENROUTER_API_KEY not set -- Layer 2 skipped (Layer 1 gate is unaffected)")
         result = {"verdict": "skipped", "findings": ["OPENROUTER_API_KEY not configured"], "checkable_claims": []}
         (workspace / "review_output.json").write_text(json.dumps(result, indent=2))
         return 0
 
     review_input = build_review_input(workspace, base_ref)
+    print(f"[review] base_url: {base_url}")
     print(f"[review] model: {model}")
     print(f"[review] starting max_tokens: {max_tokens}")
     print(f"[review] review input: {len(review_input)} chars")
 
     try:
-        result = call_reviewer(api_key, model, review_input, max_tokens)
+        result = call_reviewer(api_key, model, review_input, max_tokens, base_url)
     except Exception as e:
         print(f"[review] ERROR calling reviewer: {e}")
         result = {"verdict": "error", "findings": [str(e)], "checkable_claims": []}
