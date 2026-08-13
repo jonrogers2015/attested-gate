@@ -66,6 +66,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 import subprocess
 import sys
 from pathlib import Path
@@ -165,6 +166,16 @@ def _parse_content(resp: httpx.Response) -> dict:
 
 def call_reviewer(api_key: str, model: str, review_input: str, max_tokens: int) -> dict:
     resp = _post(api_key, model, review_input, max_tokens)
+
+    if resp.status_code == 429:
+        # Free models on OpenRouter are a shared, throttled resource pool --
+        # a real upstream rate limit, not a bug. Observed live: "is
+        # temporarily rate-limited upstream. Please retry shortly." A brief
+        # backoff then one retry is the honest fix, not a workaround --
+        # the error message itself says to retry shortly.
+        print(f"[review] 429 rate-limited by the provider, waiting 5s and retrying once")
+        time.sleep(5)
+        resp = _post(api_key, model, review_input, max_tokens)
 
     if resp.status_code == 402:
         match = AFFORD_PATTERN.search(resp.text)
