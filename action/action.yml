@@ -97,7 +97,6 @@ runs:
         REVIEW_MODEL: ${{ inputs.review-model }}
         REVIEW_MAX_TOKENS: ${{ inputs.review-max-tokens }}
         LLM_BASE_URL: ${{ inputs.llm-base-url }}
-        LLM_BASE_URL: ${{ inputs.llm-base-url }}
       run: python3 ${{ github.action_path }}/review.py
 
     - name: 'Layer 3: cross-verify review claims'
