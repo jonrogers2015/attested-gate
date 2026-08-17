@@ -16,4 +16,4 @@ Every well-known AI PR reviewer (CodeRabbit, Copilot Code Review, PR-AF, and oth
 
 ## Status
 
-Early build. The core mechanism (both `demo/` and `action/`) is proven with real tests on real code. Not yet run end-to-end against a live GitHub PR. Private for now.
+Public and live on GitHub Marketplace (v1.0.1). The gate runs end-to-end on this repo's own PRs on every merge into main -- cloud and local-model paths both, with branch protection actually enforcing it, no bypass. Not yet used by an external repo. If you try it and something breaks, open an issue.
