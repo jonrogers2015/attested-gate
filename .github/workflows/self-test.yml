@@ -1,4 +1,4 @@
-name: PR Gatekeeper Self-Test
+name: Attested Gate Self-Test
 
 on:
   pull_request:
@@ -18,7 +18,7 @@ jobs:
       - name: Install test dependencies
         run: pip install pytest --quiet --break-system-packages || pip install pytest --quiet
 
-      - uses: ./action
+      - uses: ./
         with:
           base-ref: origin/main
           test-glob: 'demo/base/test_pricing.py'

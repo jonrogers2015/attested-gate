@@ -1,4 +1,4 @@
-# PR Gatekeeper (GitHub Action)
+# Attested Gate (GitHub Action)
 
 A required status check that verifies a PR actually fixes what it claims — deterministically, with no model in the check path.
 
@@ -15,7 +15,7 @@ If an agent (or anyone) "fixes" a failing test by weakening the assertion instea
   with:
     fetch-depth: 0   # full history needed to reach the base ref
 
-- uses: jonrogers2015/pr-gatekeeper-action@v1
+- uses: jonrogers2015/pr-gatekeeper@v1
   with:
     base-ref: origin/main
     test-glob: 'test_*.py'

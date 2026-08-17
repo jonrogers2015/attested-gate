@@ -1,6 +1,6 @@
 # Build Log
 
-A real, dated record of building PR Gatekeeper — including the parts that didn't work on the first try. We're keeping those in on purpose: a product whose entire pitch is "verify claims instead of trusting them" should be able to show its own verification process working, including on itself.
+A real, dated record of building Attested Gate — including the parts that didn't work on the first try. We're keeping those in on purpose: a product whose entire pitch is "verify claims instead of trusting them" should be able to show its own verification process working, including on itself.
 
 Every commit hash below is real and checkable in this repo's history.
 

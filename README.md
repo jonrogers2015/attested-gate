@@ -1,4 +1,4 @@
-# PR Gatekeeper
+# Attested Gate
 
 Deterministic verification that a PR really fixes what it claims. No model in the check path, so the check can't hallucinate.
 

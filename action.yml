@@ -1,4 +1,4 @@
-name: 'PR Gatekeeper'
+name: 'Attested Gate'
 description: >
   Deterministic verification that a PR really fixes what it claims. Runs
   the ORIGINAL base-branch test files against the PR's code in an
@@ -81,7 +81,7 @@ runs:
         WORKSPACE: ${{ github.workspace }}
       run: |
         set +e
-        python3 ${{ github.action_path }}/gate_action.py > gatekeeper_output.txt 2>&1
+        python3 ${{ github.action_path }}/action/gate_action.py > gatekeeper_output.txt 2>&1
         code=$?
         echo "passed=$([ $code -eq 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
         cat gatekeeper_output.txt
@@ -97,7 +97,7 @@ runs:
         REVIEW_MODEL: ${{ inputs.review-model }}
         REVIEW_MAX_TOKENS: ${{ inputs.review-max-tokens }}
         LLM_BASE_URL: ${{ inputs.llm-base-url }}
-      run: python3 ${{ github.action_path }}/review.py
+      run: python3 ${{ github.action_path }}/action/review.py
 
     - name: 'Layer 3: cross-verify review claims'
       if: always()
@@ -105,11 +105,11 @@ runs:
       env:
         BASE_REF: ${{ inputs.base-ref }}
         WORKSPACE: ${{ github.workspace }}
-      run: python3 ${{ github.action_path }}/crossverify.py
+      run: python3 ${{ github.action_path }}/action/crossverify.py
 
     - name: Post evidence comment
       if: always()
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
-      run: python3 ${{ github.action_path }}/post_comment.py
+      run: python3 ${{ github.action_path }}/action/post_comment.py
