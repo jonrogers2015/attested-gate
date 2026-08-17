@@ -1,10 +1,5 @@
 name: 'Attested Gate'
-description: >
-  Deterministic verification that a PR really fixes what it claims. Runs
-  the ORIGINAL base-branch test files against the PR's code in an
-  isolated copy, so editing a test in the PR can't change the outcome.
-  No model in the check path for the hard gate -- optional AI review and
-  cross-verification layer on top for judgment signal.
+description: 'Deterministic PR verification gate: tests run against the original base-branch files, plus optional AI review layers.'
 branding:
   icon: 'shield'
   color: 'purple'
