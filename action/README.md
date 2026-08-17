@@ -15,7 +15,7 @@ If an agent (or anyone) "fixes" a failing test by weakening the assertion instea
   with:
     fetch-depth: 0   # full history needed to reach the base ref
 
-- uses: jonrogers2015/pr-gatekeeper@v1
+- uses: jonrogers2015/attested-gate@v1
   with:
     base-ref: origin/main
     test-glob: 'test_*.py'

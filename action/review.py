@@ -133,7 +133,7 @@ def _post(api_key: str, model: str, review_input: str, max_tokens: int, base_url
     # /v1/chat/completions call with no Authorization header present.
     headers = {
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://github.com/jonrogers2015/pr-gatekeeper",
+        "HTTP-Referer": "https://github.com/jonrogers2015/attested-gate",
         "X-Title": "Attested Gate Layer 2 Review",
     }
     if api_key:
