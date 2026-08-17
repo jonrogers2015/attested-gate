@@ -1,4 +1,4 @@
-name: PR Gatekeeper Self-Test (local model)
+name: Attested Gate Self-Test (local model)
 
 # Runs on a self-hosted runner with network access to a local
 # OpenAI-compatible endpoint (llama-swap), instead of paying for an
@@ -41,7 +41,7 @@ jobs:
       - name: Install test dependencies
         run: pip install pytest --quiet --break-system-packages || pip install pytest --quiet
 
-      - uses: ./action
+      - uses: ./
         with:
           base-ref: origin/main
           test-glob: 'demo/base/test_pricing.py'

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PR Gatekeeper -- Layer 3: cross-verify the reviewer's own claims.
+Attested Gate -- Layer 3: cross-verify the reviewer's own claims.
 
 Layer 2 (review.py) produces a list of checkable_claims -- specific,
 concrete statements about what the diff does. This step does not trust

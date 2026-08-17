@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PR Gatekeeper -- Layer 2: AI review, self-contained (no Helmward dependency).
+Attested Gate -- Layer 2: AI review, self-contained (no Helmward dependency).
 
 Sends ONLY the raw diff to an OpenRouter model -- deliberately no PR
 description, no commit messages, no coding agent's own reasoning, so the
@@ -134,7 +134,7 @@ def _post(api_key: str, model: str, review_input: str, max_tokens: int, base_url
     headers = {
         "Content-Type": "application/json",
         "HTTP-Referer": "https://github.com/jonrogers2015/pr-gatekeeper",
-        "X-Title": "PR Gatekeeper Layer 2 Review",
+        "X-Title": "Attested Gate Layer 2 Review",
     }
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"

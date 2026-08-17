@@ -95,7 +95,7 @@ def build_layer2_3_section() -> str:
 def build_comment_body() -> str:
     icon, verdict, layer1_body = build_layer1_section()
     layer2_3 = build_layer2_3_section()
-    return f"## {icon} PR Gatekeeper: {verdict}\n\n{layer1_body}{layer2_3}"
+    return f"## {icon} Attested Gate: {verdict}\n\n{layer1_body}{layer2_3}"
 
 
 def main() -> int:

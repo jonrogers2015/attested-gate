@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PR Gatekeeper -- Layer 1 deterministic gate, minimal proof of concept.
+Attested Gate -- Layer 1 deterministic gate, minimal proof of concept.
 
 The core principle this demonstrates: never trust a PR's own test files.
 An agent (or a human under pressure) can make tests pass by weakening the

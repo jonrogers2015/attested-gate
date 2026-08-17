@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PR Gatekeeper -- GitHub Action entrypoint.
+Attested Gate -- GitHub Action entrypoint.
 
 Core rule, same as the demo: never trust a PR's own test files. Pulls test
 files as they exist on the BASE branch, runs the PR's code against those,
