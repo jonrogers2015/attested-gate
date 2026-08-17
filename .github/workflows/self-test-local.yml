@@ -27,7 +27,7 @@ on:
     branches: [main]
 
 jobs:
-  gate:
+  gate-local:
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: self-hosted
     permissions:
