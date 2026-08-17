@@ -37,7 +37,7 @@ inputs:
   review-model:
     description: 'OpenRouter model id for Layer 2 review'
     required: false
-    default: 'anthropic/claude-sonnet-4.5'
+    default: 'poolside/laguna-s-2.1:free'
   review-max-tokens:
     description: >
       Max output tokens for the Layer 2 review call. Kept low by default
@@ -46,6 +46,18 @@ inputs:
       it.
     required: false
     default: '220'
+  llm-base-url:
+    description: >
+      Optional. OpenAI-compatible base URL for the Layer 2 review call.
+      Defaults to OpenRouter. Set this to point at a local/self-hosted
+      model instead (e.g. a llama-swap or similar OpenAI-compatible
+      endpoint reachable from the runner) -- requires a self-hosted
+      runner with network access to that endpoint, since GitHub-hosted
+      cloud runners cannot reach a private network. openrouter-api-key
+      is not required when this is set, since most local endpoints need
+      no auth.
+    required: false
+    default: ''
 
 outputs:
   passed:
@@ -84,6 +96,7 @@ runs:
         OPENROUTER_API_KEY: ${{ inputs.openrouter-api-key }}
         REVIEW_MODEL: ${{ inputs.review-model }}
         REVIEW_MAX_TOKENS: ${{ inputs.review-max-tokens }}
+        LLM_BASE_URL: ${{ inputs.llm-base-url }}
       run: python3 ${{ github.action_path }}/review.py
 
     - name: 'Layer 3: cross-verify review claims'

@@ -1,0 +1,52 @@
+name: PR Gatekeeper Self-Test (local model)
+
+# Runs on a self-hosted runner with network access to a local
+# OpenAI-compatible endpoint (llama-swap), instead of paying for an
+# OpenRouter model. Requires a self-hosted runner registered to this
+# repo with the "self-hosted" label -- if none is registered, this
+# workflow's job will simply sit queued/waiting, it will not fail and
+# will not block anything (it is not a required status check).
+#
+# SECURITY: this trigger checks out and runs a PR's own code on a
+# self-hosted runner. On a public repo, GitHub's own docs warn against
+# this exact combination -- runs-on: self-hosted with a plain
+# pull_request trigger and no fork guard means anyone who forks the
+# repo and opens a PR can get their code executed on the runner. Real,
+# not hypothetical: found live 2026-08-14 by an independent review that
+# pulled this file's actual diff, after the runner had already executed
+# a real job for an open PR. The repo also has "require approval for
+# external contributors" set at the repo level, which does gate this in
+# practice -- but that is one setting that could be loosened or missed
+# later, so the job itself is also explicitly restricted below as
+# defense in depth: it will not run at all for a PR whose head repo
+# differs from this one, i.e. never for a fork, regardless of what the
+# repo-level approval setting is set to.
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  gate:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: self-hosted
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install test dependencies
+        run: pip install pytest --quiet --break-system-packages || pip install pytest --quiet
+
+      - uses: ./action
+        with:
+          base-ref: origin/main
+          test-glob: 'demo/base/test_pricing.py'
+          test-command: 'python3 -m pytest'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          llm-base-url: 'http://192.168.1.180:8081/v1'
+          review-model: 'qwen35-9b-q6'
+          review-max-tokens: '400'
